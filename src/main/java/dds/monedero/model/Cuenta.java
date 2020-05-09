@@ -10,6 +10,8 @@ import dds.monedero.exceptions.SaldoMenorException;
 public class Cuenta {
   private double saldo = 0;
   private List<Movimiento> movimientos = new ArrayList<>();
+  private int limiteDepositos = 3;
+  private int limiteExtraccion = 1000;
 
   public Cuenta() {
     saldo = 0;
@@ -18,55 +20,77 @@ public class Cuenta {
     saldo = montoInicial;
   }
   
+  public List<Movimiento> getMovimientos() {
+	return movimientos;
+  }
   public void setMovimientos(List<Movimiento> movimientos) {
     this.movimientos = movimientos;
   }
+  public double getSaldo() {
+	return saldo;
+  }
+  public void setSaldo(double saldo) {
+	this.saldo = saldo;
+  }
+  
+  public double getMontoExtraidoA(LocalDate fecha) {
+	 return getMovimientos().stream().filter(movimiento -> !movimiento.esDeposito() && movimiento.getFecha().equals(fecha)).mapToDouble(Movimiento::getMonto).sum();
+  }
+  public int getDepositos(LocalDate fecha) {
+	  return getMovimientos().stream().filter(movimiento -> movimiento.esDeposito() && movimiento.getFecha().equals(fecha)).toArray().length;
+  }
+  
   public void poner(double cuanto) {
-    validarMonto(cuanto);
-    if (getMovimientos().stream().filter(movimiento -> movimiento.isDeposito()).count() >= 3) {
-      throw new MaximaCantidadDepositosException("Ya excedio los " + 3 + " depositos diarios");
-    }
-    new Movimiento(LocalDate.now(), cuanto, true).agregateA(this);
+    this.validarMontoPositivo(cuanto);
+    // Si pasa la validación del monto entonces paso a validar la cantidad de depositos diarios
+    this.validarDeposito();
+    // Si pasa la validación para depositar, genero los cambios en la cuenta y creo la operación
+    this.setSaldo(this.getSaldo() + cuanto);
+    this.agregarMovimiento(LocalDate.now(), cuanto, true);
   }
   public void sacar(double cuanto) {
-    validarMonto(cuanto);
-    if (getSaldo() - cuanto < 0) {
-      throw new SaldoMenorException("No puede sacar mas de " + getSaldo() + " $");
-    }
-    double montoExtraidoHoy = getMontoExtraidoA(LocalDate.now());
-    double limite = 1000 - montoExtraidoHoy;
-    if (cuanto > limite) {
-      throw new MaximoExtraccionDiarioException("No puede extraer mas de $ " + 1000
-          + " diarios, lÃ­mite: " + limite);
-    }
-    new Movimiento(LocalDate.now(), cuanto, false).agregateA(this);
+    validarMontoPositivo(cuanto);
+    // Si pasa la validación del monto entonces paso a validar la extracción
+    validarExtraccion(cuanto);
+    // Si pasa la validación para extraer, genero los cambios en la cuenta y creo la operación
+    this.setSaldo(this.getSaldo() - cuanto);
+    this.agregarMovimiento(LocalDate.now(), cuanto, false);
   }
+  
   public void agregarMovimiento(LocalDate fecha, double cuanto, boolean esDeposito) {
     Movimiento movimiento = new Movimiento(fecha, cuanto, esDeposito);
     movimientos.add(movimiento);
   }
-  public double getMontoExtraidoA(LocalDate fecha) {
-    return getMovimientos().stream()
-        .filter(movimiento -> !movimiento.isDeposito() && movimiento.getFecha().equals(fecha))
-        .mapToDouble(Movimiento::getMonto)
-        .sum();
-  }
-  public List<Movimiento> getMovimientos() {
-    return movimientos;
-  }
-  public double getSaldo() {
-    return saldo;
-  }
-  public void setSaldo(double saldo) {
-    this.saldo = saldo;
-  }
-  //Refactor Extract
-  private void validarMonto(double monto) {
+  
+  private void validarMontoPositivo(double monto) {
 	if (monto <= 0) {
       throw new MontoNegativoException(monto + ": el monto a ingresar debe ser un valor positivo");
 	}
+  }
+  
+  private void validarDeposito() {
+	  if(this.getDepositos(LocalDate.now()) >= this.limiteDepositos) {
+		  throw new MaximaCantidadDepositosException("Ya excedio los " + limiteDepositos + " depositos diarios");
+	  }
+  }
+  
+  private boolean montoDisponible(double monto) {
+	  return monto <= this.getSaldo();
+  }
+  private boolean puedeExtraer(double monto) {
+	  return (monto + getMontoExtraidoA(LocalDate.now())) <= this.limiteExtraccion;
+  }
+  private void validarExtraccion(double monto) {
+	  if(!this.montoDisponible(monto)) {
+		  throw new SaldoMenorException("No puede sacar mas de " + this.getSaldo() + " $");
+	  }
+	  if(!this.puedeExtraer(monto)) {
+		  throw new MaximoExtraccionDiarioException("No puede extraer mas de $ " + limiteExtraccion + " diarios");
+	  }
   }
 }
 
 /* CODE SMELLS IDENTIFICADOS */
 // Duplicated method en sacar y poner
+// Large class en 'Cuenta' y Large method en sacar() y poner()
+// Misplaced method en agregateA() 'Utiliza unicamente la cuenta, no utiliza nada propio de la operación'
