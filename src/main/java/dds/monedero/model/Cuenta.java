@@ -22,18 +22,14 @@ public class Cuenta {
     this.movimientos = movimientos;
   }
   public void poner(double cuanto) {
-    if (cuanto <= 0) {
-      throw new MontoNegativoException(cuanto + ": el monto a ingresar debe ser un valor positivo");
-    }
+    validarMonto(cuanto);
     if (getMovimientos().stream().filter(movimiento -> movimiento.isDeposito()).count() >= 3) {
       throw new MaximaCantidadDepositosException("Ya excedio los " + 3 + " depositos diarios");
     }
     new Movimiento(LocalDate.now(), cuanto, true).agregateA(this);
   }
   public void sacar(double cuanto) {
-    if (cuanto <= 0) {
-      throw new MontoNegativoException(cuanto + ": el monto a ingresar debe ser un valor positivo");
-    }
+    validarMonto(cuanto);
     if (getSaldo() - cuanto < 0) {
       throw new SaldoMenorException("No puede sacar mas de " + getSaldo() + " $");
     }
@@ -64,8 +60,13 @@ public class Cuenta {
   public void setSaldo(double saldo) {
     this.saldo = saldo;
   }
+  //Refactor Extract
+  private void validarMonto(double monto) {
+	if (monto <= 0) {
+      throw new MontoNegativoException(monto + ": el monto a ingresar debe ser un valor positivo");
+	}
+  }
 }
 
 /* CODE SMELLS IDENTIFICADOS */
-
-//
+// Duplicated method en sacar y poner
