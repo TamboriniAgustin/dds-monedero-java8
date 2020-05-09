@@ -13,6 +13,7 @@ public class Movimiento {
     this.monto = monto;
     this.esDeposito = esDeposito;
   }
+  
   public double getMonto() {
     return monto;
   }

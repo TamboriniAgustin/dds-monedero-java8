@@ -17,6 +17,7 @@ public class Cuenta {
   public Cuenta(double montoInicial) {
     saldo = montoInicial;
   }
+  
   public void setMovimientos(List<Movimiento> movimientos) {
     this.movimientos = movimientos;
   }
